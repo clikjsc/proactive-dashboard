@@ -487,7 +487,7 @@ async function initDashboard() {
   document.getElementById('errorBanner').classList.remove('show');
 
   try {
-    const res = await fetch('/api/dashboard/init');
+    const res = await fetch('/api/dashboard?action=init');
     if (!res.ok) throw new Error('HTTP ' + res.status);
     state.data = await res.json();
     state.usingFallback = false;
@@ -771,16 +771,13 @@ function exportCSV() {
   const params = new URLSearchParams();
   if (f.channels.length) params.set('channel', f.channels.join(','));
 
-  window.open('/api/dashboard/export?' + params.toString(), '_blank');
+  window.open('/api/dashboard?action=export&' + params.toString(), '_blank');
 }
 
 // ============================================================
 // START
 // ============================================================
 initDashboard();
-setInterval(() => {
-  if (!state.usingFallback) initDashboard();
-}, 60000);
 </script>
 </body>
 </html>
