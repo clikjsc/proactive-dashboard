@@ -1,0 +1,786 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hiệu suất Proactive Agent - S.Home</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0b1326;--bg-card:#171f33;--bg-card-hover:#1f2740;--primary:#6366f1;--primary-light:#c0c1ff;--primary-container:#8083ff;--secondary:#b9c8de;--tertiary:#ffb783;--text-primary:#dae2fd;--text-secondary:#94a3b8;--text-muted:#5b6a8a;--border:rgba(255,255,255,0.06);--border-active:rgba(99,102,241,0.4);--success:#22c55e;--warning:#f59e0b;--error:#ef4444;--radius-sm:4px;--radius-md:8px;--radius-lg:12px;--shadow-card:0 4px 24px rgba(0,0,0,0.3);--font:'Plus Jakarta Sans',system-ui,sans-serif}
+html{font-size:16px}
+body{font-family:var(--font);background:var(--bg);color:var(--text-primary);min-height:100vh;line-height:1.5}
+.dashboard{max-width:1440px;margin:0 auto;padding:0 32px 48px}
+
+/* Header */
+.header{display:flex;align-items:center;justify-content:space-between;padding:20px 0;border-bottom:1px solid var(--border);margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.header-left h1{font-size:22px;font-weight:700;letter-spacing:-0.3px}
+.header-left .subtitle{font-size:13px;color:var(--text-secondary);margin-top:2px}
+.header-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+
+/* Filter bar */
+.filter-bar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:20px;align-items:flex-end}
+.filter-group{display:flex;flex-direction:column;gap:4px}
+.filter-group label{font-size:10px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.3px}
+.filter-row{display:flex;gap:6px;flex-wrap:wrap}
+.filter-row.presets{gap:4px}
+.date-input{padding:7px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);font-size:12px;outline:none;min-width:130px}
+.date-input:focus{border-color:var(--primary)}
+.date-input::-webkit-calendar-picker-indicator{filter:invert(.6);cursor:pointer}
+.filter-btn,.preset-btn{padding:6px 12px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);font-family:var(--font);font-size:11px;font-weight:600;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s;white-space:nowrap}
+.filter-btn.active,.preset-btn.active,.preset-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.filter-btn:hover:not(.active),.preset-btn:hover:not(.active){border-color:var(--border-active);color:var(--text-primary)}
+
+/* Multi-select dropdown */
+.dropdown-wrap{position:relative}
+.dropdown-trigger{display:flex;align-items:center;gap:6px;padding:7px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-secondary);font-family:var(--font);font-size:12px;cursor:pointer;min-width:130px;white-space:nowrap}
+.dropdown-trigger .arrow{margin-left:auto;font-size:8px;opacity:.5}
+.dropdown-menu{position:absolute;top:calc(100% + 4px);left:0;z-index:100;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);padding:6px;min-width:200px;box-shadow:0 8px 32px rgba(0,0,0,.4);display:none}
+.dropdown-menu.open{display:block}
+.dropdown-menu .opt{display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:var(--radius-sm);font-size:12px;color:var(--text-primary)}
+.dropdown-menu .opt:hover{background:var(--bg-card-hover)}
+.dropdown-menu .opt input{margin:0;accent-color:var(--primary)}
+.dropdown-menu .opt .chk{width:16px;height:16px;border:2px solid var(--text-muted);border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;transition:all .15s}
+.dropdown-menu .opt .chk.checked{background:var(--primary);border-color:var(--primary);color:#fff}
+.search-input{padding:7px 10px;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-md);color:var(--text-primary);font-family:var(--font);font-size:12px;outline:none;min-width:180px}
+.search-input:focus{border-color:var(--primary);background:var(--bg-card-hover)}
+.search-input::placeholder{color:var(--text-muted)}
+
+.timestamp{font-size:11px;color:var(--text-muted);background:var(--bg-card);padding:6px 12px;border-radius:var(--radius-md);border:1px solid var(--border);white-space:nowrap}
+
+/* Error banner */
+.error-banner{display:none;align-items:center;gap:10px;padding:10px 16px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.25);border-radius:var(--radius-md);margin-bottom:16px;font-size:12px;color:#fca5a5}
+.error-banner.show{display:flex}
+.error-banner .retry-btn{padding:4px 12px;border:1px solid rgba(239,68,68,0.4);background:transparent;color:#fca5a5;border-radius:var(--radius-sm);cursor:pointer;font-size:11px;font-weight:600;font-family:var(--font);margin-left:auto}
+.error-banner .retry-btn:hover{background:rgba(239,68,68,0.2)}
+
+/* KPI Cards */
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px;position:relative;overflow:hidden;min-height:120px}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+.kpi-card:nth-child(1)::before{background:var(--primary)}
+.kpi-card:nth-child(2)::before{background:var(--success)}
+.kpi-card:nth-child(3)::before{background:var(--tertiary)}
+.kpi-card:nth-child(4)::before{background:var(--primary-light)}
+.kpi-card .label{font-size:12px;font-weight:600;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.kpi-card .value{font-size:32px;font-weight:700;letter-spacing:-0.5px;line-height:1.1}
+.kpi-card .sub{font-size:12px;color:var(--text-muted);margin-top:4px}
+.kpi-card .trend{display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:2px 8px;border-radius:20px;margin-top:8px;white-space:nowrap}
+.kpi-card .trend.up{background:rgba(34,197,94,0.15);color:var(--success)}
+.kpi-card .trend.down{background:rgba(239,68,68,0.15);color:var(--error)}
+.kpi-card .trend.flat{background:rgba(148,163,184,0.15);color:var(--text-secondary)}
+.progress-bar{height:4px;background:rgba(255,255,255,0.08);border-radius:4px;margin-top:10px;overflow:hidden}
+.progress-bar .fill{height:100%;border-radius:4px;background:var(--primary);transition:width .8s ease}
+
+/* Skeleton */
+.skeleton{background:linear-gradient(90deg,var(--bg-card) 25%,var(--bg-card-hover) 50%,var(--bg-card) 75%);background-size:200% 100%;animation:shine 1.5s infinite;border-radius:var(--radius-sm)}
+.skeleton.value{height:36px;width:60%;margin-bottom:8px}
+.skeleton.label{height:14px;width:40%;margin-bottom:4px}
+.skeleton.sub{height:12px;width:50%}
+@keyframes shine{0%{background-position:200% 0}100%{background-position:-200% 0}}
+
+/* Charts */
+.charts-row{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:24px}
+.chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.chart-card .card-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.chart-card .card-subtitle{font-size:11px;color:var(--text-muted);margin-bottom:14px}
+.chart-container{position:relative;height:260px}
+.bar-row{margin-bottom:24px}
+.bar-chart-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+.bar-chart-card .card-title{font-size:14px;font-weight:600;margin-bottom:4px}
+.bar-chart-container{height:220px}
+
+/* Table with sort */
+.table-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px;margin-bottom:24px;overflow:hidden}
+.table-card .card-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px}
+.table-card .card-title{font-size:14px;font-weight:600}
+.table-actions{display:flex;gap:8px;align-items:center}
+.export-btn{padding:6px 14px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-secondary);font-family:var(--font);font-size:11px;font-weight:600;border-radius:var(--radius-sm);cursor:pointer;transition:all .15s}
+.export-btn:hover{background:var(--primary);color:#fff;border-color:var(--primary)}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{text-align:left;padding:10px 12px;font-weight:600;color:var(--text-secondary);border-bottom:1px solid var(--border);white-space:nowrap;font-size:11px;text-transform:uppercase;letter-spacing:0.3px;cursor:pointer;user-select:none;-webkit-user-select:none}
+thead th:hover{color:var(--text-primary)}
+thead th .sort-icon{display:inline-block;margin-left:4px;font-size:9px;opacity:.4}
+thead th.sorted .sort-icon{opacity:1;color:var(--primary)}
+tbody td{padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.04);color:var(--text-primary);white-space:nowrap}
+tbody tr:hover{background:var(--bg-card-hover)}
+.campaign-name{max-width:260px;overflow:hidden;text-overflow:ellipsis;display:inline-block}
+.channel-tag{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.channel-tag.shome{background:rgba(99,102,241,0.2);color:var(--primary-light)}
+.channel-tag.tbvs{background:rgba(34,197,94,0.15);color:var(--success)}
+.channel-tag.q7{background:rgba(245,158,11,0.15);color:var(--warning)}
+.channel-tag.bt{background:rgba(239,68,68,0.15);color:var(--error)}
+.channel-tag.other{background:rgba(168,85,247,0.15);color:#a855f7}
+.rate{font-weight:600}
+.rate.high{color:var(--success)}
+.rate.med{color:var(--warning)}
+.rate.low{color:var(--text-muted)}
+.empty-row td{text-align:center;padding:32px 16px;color:var(--text-muted);font-size:13px}
+
+/* Footer */
+.footer{text-align:center;padding:24px 0 12px;font-size:11px;color:var(--text-muted);border-top:1px solid var(--border)}
+
+/* Spinner */
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--text-muted);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* Responsive */
+@media(max-width:1024px){
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .charts-row{grid-template-columns:1fr}
+  .dashboard{padding:0 20px 32px}
+}
+@media(max-width:640px){
+  .kpi-row{grid-template-columns:1fr 1fr}
+  .kpi-card{padding:14px 16px}
+  .kpi-card .value{font-size:24px}
+  .header{flex-direction:column;align-items:flex-start}
+  .header-right{width:100%}
+  .filter-bar{flex-direction:column}
+  .dashboard{padding:0 12px 24px}
+  .charts-row{gap:12px}
+  .chart-container{height:200px}
+  .bar-chart-container{height:160px}
+  .date-input{min-width:100px}
+  .table-card .card-title-row{flex-direction:column;align-items:flex-start}
+}
+</style>
+</head>
+<body>
+<div class="dashboard">
+  <header class="header">
+    <div class="header-left">
+      <h1>Hiệu suất Proactive Agent</h1>
+      <div class="subtitle">S.Home Dashboard · Theo dõi hiệu suất tư vấn AI</div>
+    </div>
+    <div class="header-right">
+      <div class="timestamp" id="updateTimestamp"><span class="spinner"></span></div>
+    </div>
+  </header>
+
+  <div class="error-banner" id="errorBanner">
+    <span>⚠️</span>
+    <span id="errorMsg">Không thể kết nối dữ liệu</span>
+    <button class="retry-btn" onclick="initDashboard()">Thử lại</button>
+  </div>
+
+  <div class="filter-bar" id="filterBar">
+    <div class="filter-group">
+      <label>Từ ngày</label>
+      <input type="date" class="date-input" id="dateFrom" onchange="onFilterChange()">
+    </div>
+    <div class="filter-group">
+      <label>Đến ngày</label>
+      <input type="date" class="date-input" id="dateTo" onchange="onFilterChange()">
+    </div>
+    <div class="filter-group">
+      <label>Khoảng</label>
+      <div class="filter-row presets">
+        <button class="preset-btn" data-days="7" onclick="setDatePreset(7)">7 ngày</button>
+        <button class="preset-btn active" data-days="30" onclick="setDatePreset(30)">30 ngày</button>
+        <button class="preset-btn" data-days="90" onclick="setDatePreset(90)">3 tháng</button>
+        <button class="preset-btn" data-days="all" onclick="setDatePreset('all')">Tất cả</button>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Kênh</label>
+      <div class="dropdown-wrap">
+        <div class="dropdown-trigger" id="channelTrigger" onclick="toggleDropdown('channel')">
+          <span id="channelLabel">Tất cả kênh</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="dropdown-menu" id="channelMenu">
+          <div class="opt" data-value="all" onclick="toggleOpt('channel','all')">
+            <span class="chk checked" id="chk-channel-all">✓</span> Tất cả
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Stage</label>
+      <div class="dropdown-wrap">
+        <div class="dropdown-trigger" id="stageTrigger" onclick="toggleDropdown('stage')">
+          <span id="stageLabel">Tất cả stage</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="dropdown-menu" id="stageMenu">
+          <div class="opt" data-value="all" onclick="toggleOpt('stage','all')">
+            <span class="chk checked" id="chk-stage-all">✓</span> Tất cả
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Tìm chiến dịch</label>
+      <input type="text" class="search-input" id="campaignSearch" placeholder="Tên campaign..." oninput="onFilterChange()">
+    </div>
+  </div>
+
+  <div class="kpi-row" id="kpiRow">
+    <div class="kpi-card"><div class="label">Tổng Leads</div><div class="skeleton value"></div><div class="skeleton label"></div><div class="skeleton sub" style="width:35%"></div></div>
+    <div class="kpi-card"><div class="label">Leads Gần Đây</div><div class="skeleton value"></div><div class="skeleton label"></div><div class="skeleton sub" style="width:35%"></div></div>
+    <div class="kpi-card"><div class="label">Meetings Đặt Lịch</div><div class="skeleton value"></div><div class="skeleton label"></div><div class="skeleton sub" style="width:35%"></div></div>
+    <div class="kpi-card"><div class="label">Tỷ Lệ Chuyển Đổi</div><div class="skeleton value"></div><div class="skeleton label"></div><div class="progress-bar" style="margin-top:16px"><div class="fill" style="width:0%"></div></div></div>
+  </div>
+
+  <div class="charts-row" id="chartsRow">
+    <div class="chart-card">
+      <div class="card-title">Xu hướng Leads & Tương tác</div>
+      <div class="card-subtitle" id="trendSubtitle">Đang tải...</div>
+      <div class="chart-container"><canvas id="trendChart"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">Phân Phối Theo Stage</div>
+      <div class="card-subtitle">Trạng thái khách hàng</div>
+      <div class="chart-container"><canvas id="stageChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="bar-row">
+    <div class="bar-chart-card">
+      <div class="card-title">Leads Theo Kênh</div>
+      <div class="card-subtitle">Số khách hàng theo từng kênh Facebook</div>
+      <div class="bar-chart-container"><canvas id="channelChart"></canvas></div>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="card-title-row">
+      <div class="card-title">Hiệu Suất Chiến Dịch Quảng Cáo</div>
+      <div class="table-actions">
+        <span style="font-size:11px;color:var(--text-muted)" id="campaignCount">—</span>
+        <button class="export-btn" onclick="exportCSV()">📥 Export CSV</button>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th onclick="sortCampaigns('name')">Tên Chiến Dịch <span class="sort-icon">↕</span></th>
+            <th onclick="sortCampaigns('channel')">Kênh <span class="sort-icon">↕</span></th>
+            <th onclick="sortCampaigns('customers')" style="text-align:right">Khách Hàng <span class="sort-icon">↕</span></th>
+            <th onclick="sortCampaigns('leads')" style="text-align:right">Leads <span class="sort-icon">↕</span></th>
+            <th onclick="sortCampaigns('leadRate')" style="text-align:right">Tỷ Lệ Lead <span class="sort-icon">↕</span></th>
+            <th onclick="sortCampaigns('meetings')" style="text-align:right">Meetings <span class="sort-icon">↕</span></th>
+            <th onclick="sortCampaigns('meetingRate')" style="text-align:right">Tỷ Lệ Hẹn <span class="sort-icon">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="campaignTableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="footer">S.Home Dashboard &copy; 2026 · Dữ liệu từ NocoDB</div>
+</div>
+
+<script>
+// ============================================================
+// STATE
+// ============================================================
+const state = {
+  data: null, // full dataset from API
+  filters: {
+    dateFrom: '',
+    dateTo: '',
+    channels: [],
+    stages: [],
+    campaignSearch: ''
+  },
+  campaignSort: { field: 'customers', dir: 'desc' },
+  chartInstances: { trend: null, stage: null, channel: null },
+  channelOptions: [],
+  stageOptions: ['Awareness/Discovery', 'Consideration/Interest', 'Evaluation/Intent', 'Action/Conversion'],
+  usingFallback: false
+};
+
+// Channel color mapping
+const CHANNEL_COLORS = {
+  'S.Home':'#6366f1','S.Home - Thiết bị vệ sinh':'#22c55e','S.Home - TBVS':'#22c55e',
+  'S.Home Hồ Chí Minh - Quận 7':'#f59e0b','S.Home HCM - Q7':'#f59e0b',
+  'S.Home Hồ Chí Minh - Bình Thạnh':'#ef4444','S.Home HCM - Bình Thạnh':'#ef4444',
+  'Rentable':'#a855f7','Linh Chi':'#ec4899'
+};
+const STAGE_COLORS = ['#6366f1','#8083ff','#c0c1ff','#22c55e'];
+
+// ============================================================
+// FALLBACK DATA
+// ============================================================
+const FALLBACK = {
+  kpi:{totalLeads:2145,recentLeads:400,meetingSetup:65,conversionRate:1.4,leadsChange:12,meetingBooked:29},
+  trends:[], stages:[], channels:[], campaigns:[]
+};
+(function buildFallback() {
+  const dailyData = [
+    {date:'2026-04-03',cust:5,leads:0,mtg:0},{date:'2026-04-06',cust:1,leads:0,mtg:0},
+    {date:'2026-04-08',cust:7,leads:5,mtg:1},{date:'2026-04-09',cust:25,leads:8,mtg:0},
+    {date:'2026-04-10',cust:2,leads:1,mtg:0},{date:'2026-04-11',cust:3,leads:4,mtg:0},
+    {date:'2026-04-12',cust:9,leads:2,mtg:0},{date:'2026-04-13',cust:14,leads:2,mtg:0},
+    {date:'2026-04-14',cust:6,leads:4,mtg:0},{date:'2026-04-15',cust:4,leads:3,mtg:0},
+    {date:'2026-04-16',cust:17,leads:8,mtg:0},{date:'2026-04-17',cust:3,leads:2,mtg:0},
+    {date:'2026-04-18',cust:2,leads:1,mtg:0},{date:'2026-04-19',cust:2,leads:0,mtg:0},
+    {date:'2026-04-20',cust:8,leads:2,mtg:1},{date:'2026-04-21',cust:6,leads:3,mtg:0},
+    {date:'2026-04-22',cust:10,leads:3,mtg:0},{date:'2026-04-23',cust:13,leads:10,mtg:0},
+    {date:'2026-04-24',cust:7,leads:4,mtg:1},{date:'2026-04-25',cust:5,leads:1,mtg:0},
+    {date:'2026-04-26',cust:19,leads:7,mtg:1},{date:'2026-04-27',cust:7,leads:4,mtg:1},
+    {date:'2026-04-28',cust:8,leads:3,mtg:0},{date:'2026-04-29',cust:9,leads:2,mtg:0},
+    {date:'2026-04-30',cust:1,leads:1,mtg:0},{date:'2026-05-01',cust:8,leads:4,mtg:0},
+    {date:'2026-05-02',cust:5,leads:2,mtg:0},{date:'2026-05-03',cust:15,leads:7,mtg:0},
+    {date:'2026-05-04',cust:20,leads:8,mtg:1},{date:'2026-05-05',cust:23,leads:10,mtg:1},
+    {date:'2026-05-06',cust:22,leads:9,mtg:1},{date:'2026-05-07',cust:11,leads:3,mtg:0},
+    {date:'2026-05-08',cust:13,leads:4,mtg:0},{date:'2026-05-09',cust:27,leads:12,mtg:2},
+    {date:'2026-05-10',cust:19,leads:7,mtg:1},{date:'2026-05-11',cust:12,leads:4,mtg:0},
+    {date:'2026-05-12',cust:8,leads:2,mtg:0},{date:'2026-05-13',cust:6,leads:2,mtg:0},
+    {date:'2026-05-14',cust:6,leads:1,mtg:0},{date:'2026-05-15',cust:14,leads:5,mtg:1},
+    {date:'2026-05-16',cust:13,leads:6,mtg:0},{date:'2026-05-17',cust:57,leads:18,mtg:2},
+    {date:'2026-05-18',cust:66,leads:22,mtg:3},{date:'2026-05-19',cust:52,leads:16,mtg:2},
+    {date:'2026-05-20',cust:61,leads:19,mtg:2},{date:'2026-05-21',cust:24,leads:8,mtg:1},
+    {date:'2026-05-22',cust:38,leads:12,mtg:1},{date:'2026-05-23',cust:64,leads:20,mtg:3},
+    {date:'2026-05-24',cust:71,leads:24,mtg:4},{date:'2026-05-25',cust:35,leads:11,mtg:1},
+    {date:'2026-05-26',cust:53,leads:17,mtg:2},{date:'2026-05-27',cust:50,leads:15,mtg:2},
+    {date:'2026-05-28',cust:20,leads:7,mtg:0}
+  ];
+  FALLBACK.trends = dailyData.map(d => ({date:d.date,customers:d.cust,leads:d.leads,meetings:d.mtg}));
+  FALLBACK.stages = [
+    {label:'Awareness/Discovery',value:880},{label:'Consideration/Interest',value:645},
+    {label:'Evaluation/Intent',value:420},{label:'Action/Conversion',value:200}
+  ];
+  FALLBACK.channels = [
+    {label:'S.Home',value:780},{label:'S.Home - Thiết bị vệ sinh',value:520},
+    {label:'S.Home Hồ Chí Minh - Quận 7',value:380},{label:'S.Home Hồ Chí Minh - Bình Thạnh',value:95},
+    {label:'Rentable',value:120},{label:'Linh Chi',value:250}
+  ];
+  FALLBACK.campaigns = [
+    {name:'BẾP - 2.2.8 - Quận 7 - MRB Bosh chung',channel:'S.Home HCM - Q7',customers:93,leads:14,leadRate:15.1,meetings:1,meetingRate:1.1},
+    {name:'TBVS - 1.1.2B - Hà Nội - CB MC Thanh Tú',channel:'S.Home - TBVS',customers:36,leads:9,leadRate:25,meetings:3,meetingRate:8.3},
+    {name:'BẾP - 2.2.2A - Hà Nội - MRB Asko',channel:'S.Home',customers:26,leads:5,leadRate:19.2,meetings:2,meetingRate:7.7},
+    {name:'BẾP - 2.2.8 - Quận 7 - MRB Bosh chung',channel:'S.Home HCM - Q7',customers:25,leads:1,leadRate:4,meetings:0,meetingRate:0},
+    {name:'TBVS - 1.1.4 - Hải Phòng - Toto, Inax',channel:'S.Home - TBVS',customers:14,leads:4,leadRate:28.6,meetings:1,meetingRate:7.1},
+    {name:'TBVS - 1.2.2B - Quận 7 - Lavabo MC Thanh Tú',channel:'S.Home HCM - Q7',customers:10,leads:1,leadRate:10,meetings:0,meetingRate:0},
+    {name:'TBVS - 1.1.8A - Thái Bình - Combo PT MC Thanh Tú',channel:'S.Home - TBVS',customers:10,leads:0,leadRate:0,meetings:0,meetingRate:0},
+    {name:'TBVS - 1.3.3.1B - BMT - Bồn cầu TM MC Thanh Tú',channel:'S.Home - TBVS',customers:18,leads:1,leadRate:5.6,meetings:0,meetingRate:0},
+    {name:'TBVS - 1.1.2B - Thái Bình - Combo PT MC Thanh Tú',channel:'S.Home - TBVS',customers:3,leads:1,leadRate:33.3,meetings:1,meetingRate:33.3},
+    {name:'TBVS - 1.1.2B - Việt Trì - CB MC Thanh Tú',channel:'S.Home - TBVS',customers:5,leads:1,leadRate:20,meetings:0,meetingRate:0}
+  ];
+})();
+
+// ============================================================
+// DROPDOWN
+// ============================================================
+function toggleDropdown(type) {
+  const menu = document.getElementById(type + 'Menu');
+  menu.classList.toggle('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.dropdown-wrap')) {
+    document.querySelectorAll('.dropdown-menu').forEach(m => m.classList.remove('open'));
+  }
+});
+
+function toggleOpt(type, val) {
+  const chkAll = document.getElementById(type + '-menu-all') || document.getElementById('chk-' + type + '-all');
+  const menu = document.getElementById(type + 'Menu');
+  const opts = menu.querySelectorAll('.opt');
+  if (val === 'all') {
+    const isOn = opts[0].querySelector('.chk').classList.contains('checked');
+    if (isOn) { opts[0].querySelector('.chk').classList.remove('checked'); opts[0].querySelector('.chk').textContent = ''; }
+    else { opts[0].querySelector('.chk').classList.add('checked'); opts[0].querySelector('.chk').textContent = '✓'; }
+    for (let i = 1; i < opts.length; i++) {
+      opts[i].querySelector('.chk').classList.remove('checked');
+      opts[i].querySelector('.chk').textContent = '';
+    }
+  } else {
+    const item = menu.querySelector(`.opt[data-value="${val}"]`);
+    const chk = item.querySelector('.chk');
+    const isOn = chk.classList.contains('checked');
+    if (isOn) { chk.classList.remove('checked'); chk.textContent = ''; }
+    else { chk.classList.add('checked'); chk.textContent = '✓'; }
+    const allOpt = opts[0];
+    const anyChecked = Array.from(opts).slice(1).some(o => o.querySelector('.chk').classList.contains('checked'));
+    if (anyChecked) { allOpt.querySelector('.chk').classList.remove('checked'); allOpt.querySelector('.chk').textContent = ''; }
+    else { allOpt.querySelector('.chk').classList.add('checked'); allOpt.querySelector('.chk').textContent = '✓'; }
+  }
+  updateDropdownLabel(type);
+  onFilterChange();
+}
+
+function updateDropdownLabel(type) {
+  const menu = document.getElementById(type + 'Menu');
+  const opts = menu.querySelectorAll('.opt');
+  const label = document.getElementById(type + 'Label');
+  const allChk = opts[0].querySelector('.chk');
+  if (allChk.classList.contains('checked')) {
+    label.textContent = type === 'channel' ? 'Tất cả kênh' : 'Tất cả stage';
+    return;
+  }
+  const selected = Array.from(opts).slice(1).filter(o => o.querySelector('.chk').classList.contains('checked')).map(o => o.dataset.value);
+  label.textContent = selected.length <= 2 ? selected.join(', ') : selected.length + ' đã chọn';
+}
+
+function populateDropdown(type, options) {
+  const menu = document.getElementById(type + 'Menu');
+  menu.innerHTML = '';
+  const allDiv = document.createElement('div');
+  allDiv.className = 'opt'; allDiv.dataset.value = 'all';
+  allDiv.onclick = () => toggleOpt(type, 'all');
+  allDiv.innerHTML = '<span class="chk checked" id="chk-' + type + '-all">✓</span> Tất cả';
+  menu.appendChild(allDiv);
+  options.forEach(opt => {
+    const div = document.createElement('div');
+    div.className = 'opt'; div.dataset.value = opt;
+    div.onclick = () => toggleOpt(type, opt);
+    div.innerHTML = '<span class="chk"></span> ' + opt;
+    menu.appendChild(div);
+  });
+  document.getElementById(type + 'Label').textContent = type === 'channel' ? 'Tất cả kênh' : 'Tất cả stage';
+}
+
+// ============================================================
+// FILTER PRESETS
+// ============================================================
+function setDatePreset(days) {
+  document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.preset-btn[data-days="${days}"]`);
+  if (btn) btn.classList.add('active');
+
+  if (days === 'all') {
+    document.getElementById('dateFrom').value = '';
+    document.getElementById('dateTo').value = '';
+  } else {
+    const to = new Date();
+    const from = new Date();
+    from.setDate(from.getDate() - days);
+    document.getElementById('dateFrom').value = from.toISOString().split('T')[0];
+    document.getElementById('dateTo').value = to.toISOString().split('T')[0];
+  }
+  onFilterChange();
+}
+
+function onFilterChange() {
+  state.filters.dateFrom = document.getElementById('dateFrom').value;
+  state.filters.dateTo = document.getElementById('dateTo').value;
+  state.filters.campaignSearch = document.getElementById('campaignSearch').value;
+
+  const chMenu = document.getElementById('channelMenu');
+  const stMenu = document.getElementById('stageMenu');
+  state.filters.channels = [];
+  state.filters.stages = [];
+  if (!chMenu.querySelector('.opt:first-child .chk').classList.contains('checked')) {
+    chMenu.querySelectorAll('.opt:not(:first-child)').forEach(o => {
+      if (o.querySelector('.chk').classList.contains('checked')) state.filters.channels.push(o.dataset.value);
+    });
+  }
+  if (!stMenu.querySelector('.opt:first-child .chk').classList.contains('checked')) {
+    stMenu.querySelectorAll('.opt:not(:first-child)').forEach(o => {
+      if (o.querySelector('.chk').classList.contains('checked')) state.filters.stages.push(o.dataset.value);
+    });
+  }
+  renderDashboard();
+}
+
+// ============================================================
+// INIT DASHBOARD
+// ============================================================
+async function initDashboard() {
+  showLoading(true);
+  document.getElementById('errorBanner').classList.remove('show');
+
+  try {
+    const res = await fetch('/api/dashboard/init');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    state.data = await res.json();
+    state.usingFallback = false;
+    extractChannelOptions();
+    populateDropdown('channel', state.channelOptions);
+    populateDropdown('stage', state.stageOptions);
+    document.getElementById('updateTimestamp').textContent = 'Cập nhật: ' + new Date().toLocaleDateString('vi-VN');
+    renderDashboard();
+  } catch (e) {
+    console.warn('API failed, using fallback:', e.message);
+    state.usingFallback = true;
+    state.data = FALLBACK;
+    state.channelOptions = [...new Set(FALLBACK.channels.map(c => c.label))].sort();
+    populateDropdown('channel', state.channelOptions);
+    populateDropdown('stage', state.stageOptions);
+    document.getElementById('updateTimestamp').textContent = 'Dữ liệu lưu sẵn';
+    document.getElementById('errorBanner').classList.add('show');
+    document.getElementById('errorMsg').textContent = 'Không thể kết nối NocoDB — đang dùng dữ liệu lưu sẵn';
+    renderDashboard();
+  }
+  showLoading(false);
+}
+
+function showLoading(loading) {
+  if (loading) {
+    document.querySelectorAll('.kpi-card').forEach(c => {
+      c.innerHTML = '<div class="label" style="color:var(--text-muted)">—</div><div class="skeleton value"></div><div class="skeleton label"></div><div class="skeleton sub"></div>';
+    });
+  }
+}
+
+// ============================================================
+// EXTRACT CHANNEL OPTIONS
+// ============================================================
+function extractChannelOptions() {
+  const map = {};
+  (state.data.campaigns || []).forEach(c => {
+    if (c.channel) map[c.channel] = true;
+  });
+  state.channelOptions = Object.keys(map).sort();
+}
+
+// ============================================================
+// RENDER DASHBOARD
+// ============================================================
+function renderDashboard() {
+  if (!state.data) return;
+  const f = state.filters;
+  let data = state.data;
+
+  // Filter campaigns by channel + search
+  let filteredCampaigns = [...data.campaigns];
+  if (f.channels.length) {
+    filteredCampaigns = filteredCampaigns.filter(c =>
+      f.channels.some(ch => (c.channel || '').toLowerCase().includes(ch.toLowerCase()))
+    );
+  }
+  if (f.campaignSearch) {
+    const s = f.campaignSearch.toLowerCase();
+    filteredCampaigns = filteredCampaigns.filter(c =>
+      (c.name || '').toLowerCase().includes(s)
+    );
+  }
+
+  // Sort campaigns
+  const sf = state.campaignSort;
+  filteredCampaigns.sort((a, b) => {
+    const va = a[sf.field] ?? '';
+    const vb = b[sf.field] ?? '';
+    if (typeof va === 'number') return va > vb ? (sf.dir === 'desc' ? -1 : 1) : va < vb ? (sf.dir === 'desc' ? 1 : -1) : 0;
+    return String(va).localeCompare(String(vb)) * (sf.dir === 'desc' ? -1 : 1);
+  });
+
+  renderKPIs(data.kpi);
+  renderTrendChart(data.trends);
+  renderStageChart(data.stages);
+  renderChannelChart(data.channels);
+  renderCampaignTable(filteredCampaigns);
+}
+
+// ============================================================
+// KPI
+// ============================================================
+function renderKPIs(kpi) {
+  if (!kpi) return;
+  const row = document.getElementById('kpiRow');
+  const trendStr = (val) => val >= 0 ? '<span class="trend up">↑ ' + Math.abs(val) + '%</span>' : '<span class="trend down">↓ ' + Math.abs(val) + '%</span>';
+
+  row.innerHTML = `
+    <div class="kpi-card">
+      <div class="label">Tổng Leads</div>
+      <div class="value">${kpi.totalLeads.toLocaleString()}</div>
+      <div class="sub">khách hàng có SĐT</div>
+      ${trendStr(kpi.leadsChange)}
+    </div>
+    <div class="kpi-card">
+      <div class="label">Leads Gần Đây</div>
+      <div class="value">${kpi.recentLeads.toLocaleString()}</div>
+      <div class="sub">khách hàng trong kỳ</div>
+      ${trendStr(kpi.leadsChange)}
+    </div>
+    <div class="kpi-card">
+      <div class="label">Meetings Đặt Lịch</div>
+      <div class="value">${kpi.meetingBooked || kpi.meetingSetup}</div>
+      <div class="sub">cuộc hẹn đã xác nhận</div>
+      <span class="trend up">✓ ${kpi.meetingSetup} đã setup</span>
+    </div>
+    <div class="kpi-card">
+      <div class="label">Tỷ Lệ Chuyển Đổi</div>
+      <div class="value">${kpi.conversionRate}%</div>
+      <div class="sub">Leads → Meetings</div>
+      <div class="progress-bar"><div class="fill" style="width:${Math.min(kpi.conversionRate * 5, 100)}%"></div></div>
+    </div>`;
+}
+
+// ============================================================
+// CHARTS
+// ============================================================
+function destroyChart(key) {
+  if (state.chartInstances[key]) { state.chartInstances[key].destroy(); state.chartInstances[key] = null; }
+}
+
+function renderTrendChart(trends) {
+  destroyChart('trend');
+  if (!trends || !trends.length) return;
+  const f = state.filters;
+  let data = trends;
+  if (f.dateFrom) data = data.filter(d => d.date >= f.dateFrom);
+  if (f.dateTo) data = data.filter(d => d.date <= f.dateTo);
+  if (data.length > 60) data = data.slice(-60);
+  data.sort((a, b) => a.date.localeCompare(b.date));
+
+  document.getElementById('trendSubtitle').textContent = data.length + ' ngày gần nhất';
+
+  const ctx = document.getElementById('trendChart').getContext('2d');
+  const labels = data.map(d => { const p = d.date.split('-'); return p[2] + '/' + p[1]; });
+
+  state.chartInstances.trend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {label:'Khách hàng',data:data.map(d=>d.customers),borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.08)',fill:true,tension:.4,pointRadius:2,pointHoverRadius:5,borderWidth:2},
+        {label:'Leads mới',data:data.map(d=>d.leads),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,0.08)',fill:true,tension:.4,pointRadius:2,pointHoverRadius:5,borderWidth:2},
+        {label:'Meetings',data:data.map(d=>d.meetings),borderColor:'#f59e0b',backgroundColor:'rgba(245,158,11,0.08)',fill:true,tension:.4,pointRadius:2,pointHoverRadius:5,borderWidth:2}
+      ]
+    },
+    options: {
+      responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#94a3b8',font:{family:'Plus Jakarta Sans',size:11},boxWidth:12,padding:12}}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#5b6a8a',font:{size:10}}},
+        y:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#5b6a8a',font:{size:10}},beginAtZero:true}
+      }
+    }
+  });
+}
+
+function renderStageChart(stages) {
+  destroyChart('stage');
+  if (!stages || !stages.length) return;
+  const ctx = document.getElementById('stageChart').getContext('2d');
+  const hasData = stages.some(s => s.value > 0);
+  if (!hasData) return;
+
+  state.chartInstances.stage = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: stages.map(s => s.label),
+      datasets: [{
+        data: stages.map(s => s.value),
+        backgroundColor: STAGE_COLORS.slice(0, stages.length),
+        borderWidth: 2, borderColor: '#171f33', hoverOffset: 8
+      }]
+    },
+    options: {
+      responsive:true,maintainAspectRatio:false,cutout:'60%',
+      plugins:{
+        legend:{
+          position:'bottom',
+          labels:{color:'#94a3b8',font:{family:'Plus Jakarta Sans',size:10},boxWidth:10,padding:8},
+          align:'center'
+        }
+      }
+    }
+  });
+}
+
+function renderChannelChart(channels) {
+  destroyChart('channel');
+  if (!channels || !channels.length) return;
+  const ctx = document.getElementById('channelChart').getContext('2d');
+  const hasData = channels.some(c => c.value > 0);
+  if (!hasData) return;
+
+  state.chartInstances.channel = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: channels.map(c => c.label),
+      datasets: [{
+        label: 'Số khách hàng',
+        data: channels.map(c => c.value),
+        backgroundColor: channels.map(c => CHANNEL_COLORS[c.label] || '#6366f1' + '80'),
+        borderColor: channels.map(c => CHANNEL_COLORS[c.label] || '#6366f1'),
+        borderWidth:1,borderRadius:4,barThickness:28
+      }]
+    },
+    options: {
+      indexAxis:'y',responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false}},
+      scales:{
+        x:{grid:{color:'rgba(255,255,255,0.04)'},ticks:{color:'#5b6a8a',font:{size:10}},beginAtZero:true},
+        y:{grid:{display:false},ticks:{color:'#94a3b8',font:{family:'Plus Jakarta Sans',size:10}}}
+      }
+    }
+  });
+}
+
+// ============================================================
+// CAMPAIGN TABLE
+// ============================================================
+function renderCampaignTable(campaigns) {
+  const tbody = document.getElementById('campaignTableBody');
+  document.getElementById('campaignCount').textContent = campaigns.length + ' chiến dịch';
+
+  if (!campaigns.length) {
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Không có chiến dịch nào phù hợp với bộ lọc</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = campaigns.map(c => {
+    const chanClass = c.channel.includes('Thiết bị vệ sinh') ? 'tbvs' : c.channel.includes('TBVS') ? 'tbvs' : c.channel.includes('Quận 7') || c.channel.includes('Q7') ? 'q7' : c.channel.includes('Bình Thạnh') ? 'bt' : c.channel === 'S.Home' ? 'shome' : 'other';
+    const lrClass = c.leadRate >= 20 ? 'high' : c.leadRate >= 5 ? 'med' : 'low';
+    const mrClass = c.meetingRate >= 10 ? 'high' : c.meetingRate >= 3 ? 'med' : 'low';
+    return `<tr>
+      <td><span class="campaign-name" title="${c.name}">${c.name}</span></td>
+      <td><span class="channel-tag ${chanClass}">${c.channel || '—'}</span></td>
+      <td style="text-align:right">${c.customers}</td>
+      <td style="text-align:right">${c.leads}</td>
+      <td style="text-align:right"><span class="rate ${lrClass}">${c.leadRate.toFixed(1)}%</span></td>
+      <td style="text-align:right">${c.meetings}</td>
+      <td style="text-align:right"><span class="rate ${mrClass}">${c.meetingRate.toFixed(1)}%</span></td>
+    </tr>`;
+  }).join('');
+
+  // Update sort icons
+  document.querySelectorAll('thead th').forEach(th => {
+    th.classList.remove('sorted');
+    const icon = th.querySelector('.sort-icon');
+    if (icon) icon.textContent = '↕';
+  });
+  const sf = state.campaignSort;
+  const ths = document.querySelectorAll('thead th');
+  const idx = {name:0,channel:1,customers:2,leads:3,leadRate:4,meetings:5,meetingRate:6};
+  if (idx[sf.field] !== undefined) {
+    const el = ths[idx[sf.field]];
+    el.classList.add('sorted');
+    el.querySelector('.sort-icon').textContent = sf.dir === 'asc' ? '↑' : '↓';
+  }
+}
+
+function sortCampaigns(field) {
+  if (state.campaignSort.field === field) {
+    state.campaignSort.dir = state.campaignSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    state.campaignSort.field = field;
+    state.campaignSort.dir = 'desc';
+  }
+  renderDashboard();
+}
+
+// ============================================================
+// EXPORT CSV
+// ============================================================
+function exportCSV() {
+  const f = state.filters;
+  let campaigns = [...state.data.campaigns];
+  if (f.channels.length) {
+    campaigns = campaigns.filter(c => f.channels.some(ch => (c.channel || '').toLowerCase().includes(ch.toLowerCase())));
+  }
+  const params = new URLSearchParams();
+  if (f.channels.length) params.set('channel', f.channels.join(','));
+
+  window.open('/api/dashboard/export?' + params.toString(), '_blank');
+}
+
+// ============================================================
+// START
+// ============================================================
+initDashboard();
+setInterval(() => {
+  if (!state.usingFallback) initDashboard();
+}, 60000);
+</script>
+</body>
+</html>
